@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fluid Maze — Classical vs Quantum</title>
+<style>
+  :root {
+    --bg:        #f7f9fc;
+    --panel:     rgba(255, 255, 255, .82);
+    --line:      #d8e0ec;
+    --text:      #1f2a3d;
+    --muted:     #6b7d99;
+    --accent:    #0ea5e9;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 800px at 50% -10%, #ffffff 0%, #f7f9fc 55%, #eef3f9 100%);
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  /* ---------------- Top control bar ---------------- */
+  #bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 2;
+    flex: 0 0 auto;
+    box-shadow: 0 2px 14px rgba(15, 30, 60, .05);
+  }
+
+  .brand {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #0284c7;
+    text-shadow: 0 0 18px rgba(14, 165, 233, .25);
+    white-space: nowrap;
+  }
+
+  button {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    background: linear-gradient(180deg, #ffffff, #eef3fa);
+    border: 1px solid #c9d5e6;
+    border-radius: 9px;
+    padding: 8px 15px;
+    cursor: pointer;
+    transition: border-color .18s, box-shadow .18s, transform .12s, background .18s;
+    box-shadow: 0 1px 2px rgba(15, 30, 60, .06);
+  }
+  button:hover {
+    border-color: #0ea5e9;
+    box-shadow: 0 0 18px rgba(14, 165, 233, .25);
+    transform: translateY(-1px);
+  }
+  button:active { transform: translateY(0); }
+
+  /* Primary (Start) button */
+  button.primary {
+    color: #ffffff;
+    background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+    border-color: #0284c7;
+    box-shadow: 0 1px 3px rgba(14, 165, 233, .35), 0 0 16px rgba(14, 165, 233, .22);
+  }
+  button.primary:hover {
+    border-color: #0369a1;
+    box-shadow: 0 0 24px rgba(14, 165, 233, .5);
+  }
+
+  /* ---------------- Mode toggle (segmented control) ---------------- */
+  .seg {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px;
+    border-radius: 10px;
+    background: #eef3fa;
+    border: 1px solid #c9d5e6;
+    box-shadow: inset 0 1px 2px rgba(15, 30, 60, .05);
+    flex: 0 0 auto;
+  }
+
+  .seg-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    border-radius: 7px;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(15, 30, 60, .16);
+    transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+    z-index: 1;
+  }
+  .seg[data-mode="quantum"] .seg-indicator { transform: translateX(100%); }
+
+  .seg-btn {
+    position: relative;
+    z-index: 2;
+    border: none;
+    background: transparent;
+    padding: 7px 16px;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: #64748b;
+    cursor: pointer;
+    transition: color .2s;
+    box-shadow: none;
+    transform: none;
+  }
+  .seg-btn.active { color: #0f172a; }
+  .seg .seg-btn:hover {
+    border: none;
+    box-shadow: none;
+    transform: none;
+    color: #0f172a;
+  }
+
+  .ctrl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 140px;
+    height: 4px;
+    border-radius: 4px;
+    outline: none;
+    background: linear-gradient(90deg, #0ea5e9, #c9d5e6);
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #0ea5e9;
+    box-shadow: 0 0 10px rgba(14, 165, 233, .65);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: #0ea5e9;
+    box-shadow: 0 0 10px rgba(14, 165, 233, .65);
+  }
+
+  /* ---------------- Status pill ---------------- */
+  .status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: color .3s, border-color .3s, background .3s;
+    box-shadow: 0 1px 3px rgba(15, 30, 60, .06);
+  }
+  #dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  .status.flooding #dot { animation: pulseDot 1.2s ease-in-out infinite; }
+  .status.resolving { color: #b45309; border-color: #f5d9a8; background: #fffaf0; }
+  .status.resolving #dot { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; animation: pulseDot .6s ease-in-out infinite; }
+  .status.locked { color: #047857; border-color: #a7f3d0; background: #f0fdf6; }
+  .status.locked #dot { background: #10b981; box-shadow: 0 0 12px #10b981; }
+
+  /* Paused / not-yet-started */
+  .status.paused { color: #64748b; border-color: var(--line); background: #ffffff; }
+  .status.paused #dot {
+    background: #94a3b8;
+    box-shadow: 0 0 8px #94a3b8;
+    animation: none;
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: .35; transform: scale(.75); }
+  }
+
+  /* ---------------- Canvas stage ---------------- */
+  #stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  canvas {
+    display: block;
+    border-radius: 16px;
+    border: 1px solid #dbe3ee;
+    box-shadow:
+      0 0 70px rgba(14, 165, 233, .08),
+      0 24px 60px rgba(15, 30, 60, .10);
+    background: #ffffff;
+  }
+
+  @media (max-width: 720px) {
+    #bar { gap: 10px; padding: 10px 12px; }
+    .brand { display: none; }
+    input[type="range"] { width: 90px; }
+    .seg-btn { padding: 6px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <div class="brand">Fluid&nbsp;Maze</div>
+
+    <button id="start" class="primary" type="button">▶ Start</button>
+
+    <div class="seg" id="seg" data-mode="quantum">
+      <span class="seg-indicator"></span>
+      <button class="seg-btn" data-mode="classical" type="button">Classical</button>
+      <button class="seg-btn active" data-mode="quantum" type="button">Quantum</button>
+    </div>
+
+    <button id="gen" type="button">↻ New Maze</button>
+
+    <div class="ctrl">
+      <label for="speed">Flow Speed</label>
+      <input id="speed" type="range" min="0" max="100" value="40" />
+    </div>
+
+    <div class="status flooding" id="statusWrap">
+      <span id="dot"></span>
+      <span id="statusText">Flooding…</span>
+    </div>
+  </header>
+
+  <main id="stage">
+    <canvas id="c"></canvas>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =====================================================================
+     1. CONSTANTS & GLOBAL STATE
+     ===================================================================== */
+
+  const COLS = 31;
+  const ROWS = 31;
+  const CW = (COLS - 1) / 2;
+  const CH = (ROWS - 1) / 2;
+  const N  = COLS * ROWS;
+
+  const canvas     = document.getElementById('c');
+  const ctx        = canvas.getContext('2d', { alpha: false });
+  const stage      = document.getElementById('stage');
+  const statusWrap = document.getElementById('statusWrap');
+  const statusText = document.getElementById('statusText');
+  const speedInput = document.getElementById('speed');
+  const segEl      = document.getElementById('seg');
+  const segBtns    = segEl.querySelectorAll('.seg-btn');
+  const startBtn   = document.getElementById('start');
+
+  let cell     = 10;      // pixel size of one grid square (CSS px)
+  let sizePx   = 300;
+  let wallPath = null;
+
+  let grid      = null;   // 1 = wall, 0 = corridor
+  let dist      = null;   // BFS distance from inlet (-1 = unreachable)
+  let parent    = null;   // BFS parent pointers (for quantum backtracking)
+  let cellColor = null;   // pre-baked per-cell colour string
+
+  let inletIdx  = 0;
+  let outletIdx = 0;
+  let maxDist   = 1;
+
+  /* ---- run control ---- */
+  let running    = false;   // simulation only advances while true
+  let hasStarted = false;   // has the user pressed Start at least once?
+
+  /* ---- shared phase state ---- */
+  let phase     = 'flooding';   // 'flooding' | 'resolving' | 'locked'
+  let fadeT     = 0;
+  let pathIdx   = [];
+  let pathSet   = new Set();
+  let particles = [];
+
+  let mode  = 'quantum';        // 'quantum' | 'classical'
+  let speed = 12;               // cells per second
+  let lastFrame = 0;
+  let lastStatusKey = '';
+
+  /* ---- quantum (BFS flood) state ---- */
+  let front = 0;
+
+  /* ---- classical (depth-first search) state ---- */
+  let cStack           = [];     // current path, top = water head
+  let cVisited         = null;   // Uint8Array — cells ever entered
+  let cWater           = null;   // Float32Array — animated fill 0..1
+  let cTargets         = null;   // Uint8Array — 1 = should be full
+  let cStepTimer       = 0;      // seconds since last DFS step
+  let cBacktracking    = false;  // currently receding through a dead end
+  let cBacktrackStable = 0;      // seconds the current backtrack state held
+
+  const idx = (x, y) => y * COLS + x;
+
+  /* =====================================================================
+     2. MAZE GENERATION — randomised depth-first search (recursive backtracker)
+        plus a light braiding pass that removes a few walls to create loops.
+     ===================================================================== */
+
+  function generateMaze() {
+    grid = new Uint8Array(N).fill(1);
+    const visited = new Uint8Array(CW * CH);
+
+    const sx = (Math.random() * CW) | 0;
+    const sy = (Math.random() * CH) | 0;
+    const stack = [sx + sy * CW];
+    visited[sx + sy * CW] = 1;
+    grid[idx(2 * sx + 1, 2 * sy + 1)] = 0;
+
+    while (stack.length) {
+      const cur = stack[stack.length - 1];
+      const x = cur % CW;
+      const y = (cur / CW) | 0;
+
+      const opts = [];
+      if (x > 0      && !visited[cur - 1])  opts.push([x - 1, y, -1,  0]);
+      if (x < CW - 1 && !visited[cur + 1])  opts.push([x + 1, y,  1,  0]);
+      if (y > 0      && !visited[cur - CW]) opts.push([x, y - 1,  0, -1]);
+      if (y < CH - 1 && !visited[cur + CW]) opts.push([x, y + 1,  0,  1]);
+
+      if (!opts.length) { stack.pop(); continue; }
+
+      const [nx, ny, dx, dy] = opts[(Math.random() * opts.length) | 0];
+      visited[nx + ny * CW] = 1;
+
+      grid[idx(2 * x + 1 + dx, 2 * y + 1 + dy)] = 0;
+      grid[idx(2 * nx + 1, 2 * ny + 1)] = 0;
+
+      stack.push(nx + ny * CW);
+    }
+
+    // Braiding pass — punch extra holes so the maze has loops / alternatives
+    let made = 0, tries = 0;
+    while (made < 14 && tries < 900) {
+      tries++;
+      const x = 1 + ((Math.random() * (COLS - 2)) | 0);
+      const y = 1 + ((Math.random() * (ROWS - 2)) | 0);
+      if (grid[idx(x, y)] !== 1) continue;
+
+      const horizontalWall =
+        x % 2 === 0 && grid[idx(x - 1, y)] === 0 && grid[idx(x + 1, y)] === 0;
+      const verticalWall =
+        y % 2 === 0 && grid[idx(x, y - 1)] === 0 && grid[idx(x, y + 1)] === 0;
+
+      if (horizontalWall || verticalWall) {
+        grid[idx(x, y)] = 0;
+        made++;
+      }
+    }
+
+    // Inlet (top edge) and outlet (bottom edge)
+    const ix = 1 + 2 * ((Math.random() * CW) | 0);
+    const ox = 1 + 2 * ((Math.random() * CW) | 0);
+    grid[idx(ix, 0)]        = 0;
+    grid[idx(ox, ROWS - 1)] = 0;
+    inletIdx  = idx(ix, 0);
+    outletIdx = idx(ox, ROWS - 1);
+  }
+
+  /* =====================================================================
+     3. FLOW ANALYSIS — BFS from the inlet.
+        Provides the quantum wavefront distance field AND the reference
+        shortest path used to validate the classical search.
+     ===================================================================== */
+
+  function computeFlow() {
+    dist   = new Int32Array(N).fill(-1);
+    parent = new Int32Array(N).fill(-1);
+
+    const queue = new Int32Array(N);
+    let head = 0, tail = 0;
+
+    dist[inletIdx] = 0;
+    queue[tail++] = inletIdx;
+
+    const relax = (n, nd, cur) => {
+      if (grid[n] === 0 && dist[n] < 0) {
+        dist[n] = nd;
+        parent[n] = cur;
+        queue[tail++] = n;
+      }
+    };
+
+    while (head < tail) {
+      const cur = queue[head++];
+      const x = cur % COLS;
+      const y = (cur / COLS) | 0;
+      const nd = dist[cur] + 1;
+
+      if (x > 0)        relax(cur - 1,    nd, cur);
+      if (x < COLS - 1) relax(cur + 1,    nd, cur);
+      if (y > 0)        relax(cur - COLS, nd, cur);
+      if (y < ROWS - 1) relax(cur + COLS, nd, cur);
+    }
+
+    maxDist = dist[outletIdx];
+    if (maxDist < 1) maxDist = 1;
+  }
+
+  /* Pre-bake a per-cell colour: deep blue near the inlet, bright cyan at the front. */
+  function buildColors() {
+    cellColor = new Array(N).fill('rgb(59,130,246)');
+
+    let mx = 1;
+    for (let i = 0; i < N; i++) if (dist[i] > mx) mx = dist[i];
+
+    for (let i = 0; i < N; i++) {
+      const d = dist[i];
+      if (d < 0) continue;
+      const t = Math.min(1, d / mx);
+      const r = Math.round(59 + (34  - 59)  * t);
+      const g = Math.round(130 + (211 - 130) * t);
+      const b = Math.round(246 + (238 - 246) * t);
+      cellColor[i] = `rgb(${r},${g},${b})`;
+    }
+  }
+
+  /* =====================================================================
+     4. CANVAS SIZING & GEOMETRY CACHING
+     ===================================================================== */
+
+  function addRR(p, x, y, w, h, r) {
+    r = Math.max(0, Math.min(r, w * 0.5, h * 0.5));
+    p.moveTo(x + r, y);
+    p.arcTo(x + w, y,     x + w, y + h, r);
+    p.arcTo(x + w, y + h, x,     y + h, r);
+    p.arcTo(x,     y + h, x,     y,     r);
+    p.arcTo(x,     y,     x + w, y,     r);
+    p.closePath();
+  }
+
+  function buildWallPath() {
+    const p   = new Path2D();
+    const pad = Math.max(0.4, cell * 0.03);
+    const r   = Math.max(1.5, cell * 0.2);
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (grid[idx(x, y)] === 1) {
+          addRR(p, x * cell + pad, y * cell + pad,
+                   cell - pad * 2, cell - pad * 2, r);
+        }
+      }
+    }
+    wallPath = p;
+  }
+
+  function resize() {
+    const r = stage.getBoundingClientRect();
+    const avail = Math.min(r.width, r.height) - 32;
+    const s = Math.max(220, Math.floor(avail));
+
+    sizePx = s;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    canvas.width  = Math.round(s * dpr);
+    canvas.height = Math.round(s * dpr);
+    canvas.style.width  = s + 'px';
+    canvas.style.height = s + 'px';
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cell = s / COLS;
+
+    if (grid) buildWallPath();
+  }
+
+  /* =====================================================================
+     5. STATUS PILL
+     ===================================================================== */
+
+  function setStatus(text, cls) {
+    const key = cls + '|' + text;
+    if (key === lastStatusKey) return;
+    lastStatusKey = key;
+    statusText.textContent = text;
+    statusWrap.className = 'status ' + cls;
+  }
+
+  function updateStatus() {
+    if (!running) {
+      setStatus(hasStarted ? 'Paused' : 'Ready', 'paused');
+      return;
+    }
+
+    if (mode === 'quantum') {
+      if (phase === 'flooding')       setStatus('Flooding…', 'flooding');
+      else if (phase === 'resolving') setStatus('Exit Reached!', 'resolving');
+      else                            setStatus('Fastest Path Locked', 'locked');
+    } else {
+      if (phase === 'flooding') {
+        // Debounced so the pill doesn't strobe between the two states
+        // every time the search nips into and out of a dead end.
+        if (cBacktracking && cBacktrackStable > 0.35) {
+          setStatus('Dead End — Backtracking', 'resolving');
+        } else {
+          setStatus('Searching…', 'flooding');
+        }
+      } else if (phase === 'resolving') {
+        setStatus('Path Found!', 'resolving');
+      } else {
+        setStatus('Path Locked', 'locked');
+      }
+    }
+  }
+
+  /* =====================================================================
+     6. RUN CONTROL
+     ===================================================================== */
+
+  function setRunning(v) {
+    running = !!v;
+    if (running) hasStarted = true;
+    startBtn.textContent = running ? '❚❚ Pause' : (hasStarted ? '▶ Resume' : '▶ Start');
+    lastStatusKey = '';
+    updateStatus();
+  }
+
+  /* =====================================================================
+     7. FLOW LIFECYCLE
+     ===================================================================== */
+
+  /** Reset all simulation state for the current maze (keeps grid & BFS data). */
+  function resetFlow() {
+    // shared
+    phase     = 'flooding';
+    fadeT     = 0;
+    pathIdx   = [];
+    pathSet   = new Set();
+    particles = [];
+
+    // quantum
+    front = 0;
+
+    // classical
+    cStack           = [inletIdx];
+    cVisited         = new Uint8Array(N);
+    cWater           = new Float32Array(N);
+    cTargets         = new Uint8Array(N);
+    cStepTimer       = 0;
+    cBacktracking    = false;
+    cBacktrackStable = 0;
+
+    cVisited[inletIdx] = 1;
+    cTargets[inletIdx] = 1;   // water starts pouring into the inlet cell
+
+    lastStatusKey = '';
+    updateStatus();
+  }
+
+  function newMaze() {
+    generateMaze();
+    computeFlow();
+    buildColors();
+    buildWallPath();
+    resetFlow();
+  }
+
+  /* ---- quantum: wavefront reaches the outlet ---- */
+  function beginResolveQuantum() {
+    phase = 'resolving';
+    fadeT = 0;
+
+    // Backtrack the shortest path using BFS parent pointers
+    pathIdx = [];
+    let cur = outletIdx;
+    while (cur !== -1) {
+      pathIdx.push(cur);
+      cur = parent[cur];
+    }
+    pathIdx.reverse();
+    pathSet = new Set(pathIdx);
+
+    initParticles();
+    updateStatus();
+  }
+
+  /* ---- classical: DFS head reaches the outlet ---- */
+  function beginResolveClassical() {
+    phase = 'resolving';
+    fadeT = 0;
+
+    // The stack IS the path the water took to get here.
+    pathIdx = cStack.slice();
+    pathSet = new Set(pathIdx);
+
+    initParticles();
+    updateStatus();
+  }
+
+  function initParticles() {
+    particles = [];
+    const len = pathIdx.length - 1;
+    if (len < 1) return;
+    for (let k = 0; k < 16; k++) {
+      particles.push({
+        s: Math.random() * len,
+        v: 0.6 + Math.random() * 0.9
+      });
+    }
+  }
+
+  /* =====================================================================
+     8. CLASSICAL ALGORITHM — depth-first search with visible backtracking
+        • Water pushes forward into one unexplored corridor at a time.
+        • At a dead end it recedes cell-by-cell back to the last junction.
+        • At a junction it tries another unexplored branch.
+        • It stops the instant it reaches the outlet.
+     ===================================================================== */
+
+  function classicalStep() {
+    if (cStack.length === 0) return;
+
+    const head = cStack[cStack.length - 1];
+
+    // --- Success ---
+    if (head === outletIdx) {
+      beginResolveClassical();
+      return;
+    }
+
+    const x = head % COLS;
+    const y = (head / COLS) | 0;
+
+    // Collect open, never-visited neighbours
+    const nbrs = [];
+    if (x > 0        && grid[head - 1]    === 0 && !cVisited[head - 1])    nbrs.push(head - 1);
+    if (x < COLS - 1 && grid[head + 1]    === 0 && !cVisited[head + 1])    nbrs.push(head + 1);
+    if (y > 0        && grid[head - COLS] === 0 && !cVisited[head - COLS]) nbrs.push(head - COLS);
+    if (y < ROWS - 1 && grid[head + COLS] === 0 && !cVisited[head + COLS]) nbrs.push(head + COLS);
+
+    if (nbrs.length > 0) {
+      // --- Advance along a randomly chosen unexplored branch ---
+      const n = nbrs[(Math.random() * nbrs.length) | 0];
+      cVisited[n] = 1;
+      cStack.push(n);
+      cTargets[n] = 1;
+
+      if (cBacktracking) cBacktrackStable = 0;
+      cBacktracking = false;
+    } else if (cStack.length > 1) {
+      // --- Dead end: recede one cell, water drains from the tip ---
+      const popped = cStack.pop();
+      cTargets[popped] = 0;
+
+      // Pause briefly on the *first* pop of a recede so the dead end reads clearly
+      if (!cBacktracking) {
+        cStepTimer = -0.28;
+        cBacktrackStable = 0;
+      }
+
+      cBacktracking = true;
+    }
+  }
+
+  function animateClassicalWater(dt) {
+    // Match the fill / drain rate to the DFS step rate.  Previously the fill
+    // rate was ~6× the step rate, so every newly entered cell snapped from
+    // empty to full in a single frame — that read as random blinking all
+    // over the maze.  One cell per step keeps the water looking like a
+    // continuous stream.
+    const fillRate = Math.max(2, speed);
+    const fadeRate = Math.max(2, speed * 0.9);
+
+    for (let i = 0; i < N; i++) {
+      const tgt = cTargets[i];
+      const w   = cWater[i];
+      if (w < tgt)      cWater[i] = Math.min(tgt, w + dt * fillRate);
+      else if (w > tgt) cWater[i] = Math.max(tgt, w - dt * fadeRate);
+    }
+  }
+
+  function updateClassical(dt) {
+    if (phase === 'flooding') {
+      const interval = 1 / Math.max(0.5, speed);   // seconds per DFS step
+      cStepTimer += dt;
+      if (cStepTimer >= interval) {
+        cStepTimer = 0;
+        classicalStep();
+      }
+    }
+
+    cBacktrackStable += dt;
+    animateClassicalWater(dt);
+  }
+
+  /* =====================================================================
+     9. QUANTUM UPDATE — BFS wavefront
+     ===================================================================== */
+
+  function updateQuantum(dt) {
+    if (phase !== 'flooding') return;
+
+    front += speed * dt;
+    if (front >= maxDist + 0.5) {
+      front = maxDist + 0.5;
+      beginResolveQuantum();
+    }
+  }
+
+  /* =====================================================================
+     10. SHARED UPDATE
+     ===================================================================== */
+
+  function update(dt) {
+    if (!running) return;   // frozen until the Start button is pressed
+
+    if (mode === 'quantum') updateQuantum(dt);
+    else                    updateClassical(dt);
+
+    // Dissipation of non-optimal branches (both modes)
+    if (phase === 'resolving') {
+      if (fadeT < 1) fadeT = Math.min(1, fadeT + dt / 1.3);
+      if (fadeT >= 1) phase = 'locked';
+    }
+
+    // Droplets travelling along the locked corridor
+    if (phase !== 'flooding') {
+      const len = pathIdx.length - 1;
+      if (len > 0) {
+        for (const p of particles) {
+          p.s += dt * 7 * p.v;
+          if (p.s >= len) p.s -= len;
+        }
+      }
+    }
+
+    updateStatus();
+  }
+
+  /* =====================================================================
+     11. RENDER
+     ===================================================================== */
+
+  function drawFluidQuantum(t) {
+    for (let i = 0; i < N; i++) {
+      if (grid[i] !== 0) continue;
+      const d = dist[i];
+      if (d < 0) continue;
+
+      const isPath = pathSet.has(i);
+      let f = front - d;
+      if (f <= 0) continue;
+      if (f > 1) f = 1;
+      if (isPath && phase !== 'flooding') f = 1;
+
+      let a = 0.18 + 0.62 * f;
+      if (phase !== 'flooding' && !isPath) a *= (1 - fadeT);
+      if (a <= 0.012) continue;
+
+      const ease  = f * f * (3 - 2 * f);
+      const inset = (1 - ease) * cell * 0.35;
+      const w = cell - inset * 2;
+      if (w <= 0.6) continue;
+
+      const cx = (i % COLS) * cell + inset;
+      const cy = ((i / COLS) | 0) * cell + inset;
+
+      const wobX = Math.sin(t * 3.2 + d * 0.75) * cell * 0.035 * ease;
+      const wobY = Math.cos(t * 2.6 + d * 0.55) * cell * 0.035 * ease;
+      const shimmer = 0.86 + 0.14 * Math.sin(t * 2.6 - d * 0.8);
+
+      ctx.globalAlpha = Math.min(1, a * shimmer);
+      ctx.fillStyle = cellColor[i];
+      ctx.beginPath();
+      addRR(ctx, cx + wobX, cy + wobY, w, w, Math.min(w * 0.35, cell * 0.3));
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawFluidClassical(t) {
+    for (let i = 0; i < N; i++) {
+      if (grid[i] !== 0) continue;
+      const w0 = cWater[i];
+      if (w0 <= 0.01) continue;
+
+      const isPath = pathSet.has(i);
+      let a = 0.18 + 0.62 * w0;
+      if (phase !== 'flooding' && !isPath) a *= (1 - fadeT);
+      if (a <= 0.012) continue;
+
+      const ease  = w0 * w0 * (3 - 2 * w0);
+      const inset = (1 - ease) * cell * 0.35;
+      const w = cell - inset * 2;
+      if (w <= 0.6) continue;
+
+      const cx = (i % COLS) * cell + inset;
+      const cy = ((i / COLS) | 0) * cell + inset;
+
+      const wobX = Math.sin(t * 3.2 + i * 0.05) * cell * 0.035 * ease;
+      const wobY = Math.cos(t * 2.6 + i * 0.04) * cell * 0.035 * ease;
+      const shimmer = 0.86 + 0.14 * Math.sin(t * 2.6 - i * 0.02);
+
+      ctx.globalAlpha = Math.min(1, a * shimmer);
+      ctx.fillStyle = cellColor[i];
+      ctx.beginPath();
+      addRR(ctx, cx + wobX, cy + wobY, w, w, Math.min(w * 0.35, cell * 0.3));
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Glowing marker on the leading edge of the classical water head. */
+  function drawHeadMarker(t) {
+    if (mode !== 'classical' || phase !== 'flooding' || cStack.length === 0) return;
+
+    const h = cStack[cStack.length - 1];
+    const x = (h % COLS + 0.5) * cell;
+    const y = (((h / COLS) | 0) + 0.5) * cell;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 8);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(14,165,233,0.95)';
+    ctx.shadowBlur  = 14 + 10 * pulse;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle   = '#e0f2fe';
+    ctx.beginPath();
+    ctx.arc(x, y, cell * (0.16 + 0.05 * pulse), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPath(t) {
+    if (phase === 'flooding' || pathIdx.length === 0) return;
+
+    const pulse = 0.5 + 0.5 * Math.sin(t * 5);
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(14,165,233,0.85)';
+    ctx.shadowBlur  = 12 + 14 * pulse;
+    ctx.globalAlpha = 0.55 + 0.35 * pulse;
+    ctx.fillStyle   = 'rgb(56,189,248)';
+
+    ctx.beginPath();
+    for (let k = 0; k < pathIdx.length; k++) {
+      const i = pathIdx[k];
+      const x = (i % COLS) * cell + cell * 0.15;
+      const y = ((i / COLS) | 0) * cell + cell * 0.15;
+      const w = cell * 0.70;
+      addRR(ctx, x, y, w, w, cell * 0.26);
+    }
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function drawParticles() {
+    if (phase === 'flooding' || particles.length === 0) return;
+
+    const len = pathIdx.length - 1;
+    if (len < 1) return;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(186,230,253,0.95)';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#f0fbff';
+
+    for (const p of particles) {
+      const i0 = Math.floor(p.s);
+      const i1 = Math.min(i0 + 1, len);
+      const fr = p.s - i0;
+
+      const a = pathIdx[i0];
+      const b = pathIdx[i1];
+
+      const ax = (a % COLS + 0.5) * cell;
+      const ay = (((a / COLS) | 0) + 0.5) * cell;
+      const bx = (b % COLS + 0.5) * cell;
+      const by = (((b / COLS) | 0) + 0.5) * cell;
+
+      const x = ax + (bx - ax) * fr;
+      const y = ay + (by - ay) * fr;
+
+      ctx.beginPath();
+      ctx.arc(x, y, cell * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawMarkers(t) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+
+    // Inlet — green beacon
+    const ix = inletIdx % COLS;
+    const iy = (inletIdx / COLS) | 0;
+    ctx.globalAlpha = 0.3 + 0.35 * pulse;
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc((ix + 0.5) * cell, (iy + 0.5) * cell, cell * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outlet — amber ring, turns green once locked
+    const ox = outletIdx % COLS;
+    const oy = (outletIdx / COLS) | 0;
+    const locked = phase === 'locked';
+
+    ctx.globalAlpha = 0.45 + 0.35 * pulse;
+    ctx.strokeStyle = locked ? '#10b981' : '#f59e0b';
+    ctx.lineWidth = Math.max(1.5, cell * 0.1);
+    ctx.beginPath();
+    ctx.arc((ox + 0.5) * cell, (oy + 0.5) * cell,
+            cell * (0.16 + 0.06 * pulse), 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+  }
+
+  function render(t) {
+    // Bright backdrop
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, sizePx, sizePx);
+
+    // Walls — soft slate
+    if (wallPath) {
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fill(wallPath);
+    }
+
+    if (mode === 'quantum') drawFluidQuantum(t);
+    else                    drawFluidClassical(t);
+
+    drawPath(t);
+    drawParticles();
+    drawHeadMarker(t);
+    drawMarkers(t);
+
+    ctx.globalAlpha = 1;
+  }
+
+  /* =====================================================================
+     12. MAIN LOOP
+     ===================================================================== */
+
+  function frame(now) {
+    if (!lastFrame) lastFrame = now;
+    let dt = (now - lastFrame) / 1000;
+    lastFrame = now;
+    if (dt > 0.05) dt = 0.05;          // clamp after tab-switches
+
+    update(dt);
+    render(now / 1000);
+
+    requestAnimationFrame(frame);
+  }
+
+  /* =====================================================================
+     13. WIRING & BOOTSTRAP
+     ===================================================================== */
+
+  function setMode(m) {
+    if (m === mode) return;
+    mode = m;
+
+    segEl.dataset.mode = m;
+    segBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+
+    // Keep the SAME maze so the two algorithms are directly comparable
+    resetFlow();
+  }
+
+  segBtns.forEach(b => {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+  });
+
+  startBtn.addEventListener('click', () => {
+    setRunning(!running);
+  });
+
+  document.getElementById('gen').addEventListener('click', () => {
+    newMaze();
+  });
+
+  speedInput.addEventListener('input', () => {
+    speed = 2 + (speedInput.value / 100) * 26;   // 2 … 28 cells/sec
+  });
+  speed = 2 + (speedInput.value / 100) * 26;
+
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => resize()).observe(stage);
+  }
+  window.addEventListener('resize', resize);
+
+  // Boot — paused until the Start button is pressed
+  resize();
+  newMaze();
+  setRunning(false);
+  requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>
